@@ -1,9 +1,9 @@
 {
-  "name": "electron-vue-vite",
-  "version": "28.1.0",
+  "name": "tree-dump-ui",
+  "version": "0.0.1",
   "main": "dist-electron/main/index.js",
   "description": "Really simple Electron + Vue + Vite boilerplate.",
-  "author": "草鞋没号 <308487730@qq.com>",
+  "author": "Lee Nguyen <lyntc.elec@gmail.com>",
   "license": "MIT",
   "private": true,
   "keywords": [
@@ -25,6 +25,8 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@iconify/vue": "^4.1.2",
+    "@purge-icons/generated": "^0.10.0",
     "@vitejs/plugin-vue": "^5.0.4",
     "electron": "^29.1.1",
     "electron-builder": "^24.13.3",
@@ -41,6 +43,47 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
-    "element-plus": "^2.8.6"
+    "element-plus": "^2.8.6",
+    "istextorbinary": "^9.5.0"
+  },
+  "build": {
+    "asar": true,
+    "productName": "tree-dump-ui",
+    "directories": {
+      "output": "release/${version}"
+    },
+    "files": [
+      "dist",
+      "dist-electron"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "artifactName": "${productName}-Linux-${version}.${ext}"
+    }
   }
 }

@@ -12,5 +12,7 @@ interface Window {
     saveTreedump: (dirPath: string, data: any) => Promise<any>;
     openDirectory: () => Promise<string | null>;
     loadConfig: () => Promise<string>;
+    saveConfig: (currentPath: string) => Promise<any>;
+    readFiles: (dirPath: string, filePaths: string[]) => Promise<{ [key: string]: string }>;
   };
 }

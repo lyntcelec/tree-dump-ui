@@ -6,4 +6,5 @@ contextBridge.exposeInMainWorld("api", {
   openDirectory: () => ipcRenderer.invoke("open-directory-dialog"),
   loadConfig: () => ipcRenderer.invoke("load-config"),
   saveConfig: (currentPath: string) => ipcRenderer.invoke("save-config", currentPath),
+  readFiles: (dirPath: string, filePaths: string[]) => ipcRenderer.invoke("read-files", dirPath, filePaths),
 });

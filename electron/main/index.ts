@@ -5,6 +5,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { promisify } from "node:util";
 import fs from "node:fs";
+import { isText } from 'istextorbinary';
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -103,7 +104,7 @@ const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
 
 const configFilePath = path.join(process.env.APP_ROOT, 'config.json');
-// Modified scanDirectory function
+
 async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
   const entries = await readdir(dirPath);
   const tree = [];
@@ -115,7 +116,7 @@ async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
     const node: any = {
       id: fullPath,
       label: entry,
-      checked: selectedIds.has(fullPath),
+      checked: selectedIds.has(fullPath), // Đảm bảo dòng này tồn tại
     };
 
     if (entryStat.isDirectory()) {
@@ -128,29 +129,29 @@ async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
   return tree;
 }
 
-// IPC Handlers
+
 ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
   try {
-    console.log("Scanning directory:", dirPath);
-    const treedumpPath = path.join(dirPath, "treedump.json");
+    const treedumpPath = path.join(dirPath, ".treedump");
     let selectedIds = new Set<string>();
 
     if (fs.existsSync(treedumpPath)) {
       const data = await readFile(treedumpPath, "utf-8");
       const selectedNodes = JSON.parse(data);
-      selectedIds = new Set(selectedNodes.map((node: any) => node.id));
+      selectedIds = new Set(selectedNodes.map((node: any) => path.join(dirPath, node.id)));
     }
 
     const treeData = await scanDirectory(dirPath, selectedIds);
-    return treeData;
+    return { treeData, selectedIds: Array.from(selectedIds) }; // Return both
   } catch (error) {
     console.error("Error scanning directory:", error);
-    return [];
+    return { treeData: [], selectedIds: [] }; // Ensure both are returned even on error
   }
 });
 
+
 ipcMain.handle("save-treedump", async (_event, dirPath: string, data: any) => {
-  const treedumpPath = path.join(dirPath, "treedump.json");
+  const treedumpPath = path.join(dirPath, ".treedump");
   await writeFile(treedumpPath, JSON.stringify(data, null, 2), "utf-8");
   return { success: true };
 });
@@ -187,4 +188,24 @@ ipcMain.handle("save-config", async (_event, currentPath: string) => {
     console.error("Failed to save config:", error);
     return { success: false };
   }
+});
+
+ipcMain.handle("read-files", async (_event, dirPath: string, filePaths: string[]) => {
+  const contents: { [key: string]: string } = {};
+
+  for (const filePath of filePaths) {
+    try {
+      const fullFilePath = path.join(dirPath, filePath);
+      const buffer = await readFile(fullFilePath);
+      const isTextFile = isText(null, buffer);
+      if (isTextFile) {
+        contents[filePath] = buffer.toString('utf-8');
+      } else {
+        contents[filePath] = "<< Cannot show this file >>";
+      }
+    } catch (error) {
+      contents[filePath] = "<< Cannot show this file >>";
+    }
+  }
+  return contents;
 });
