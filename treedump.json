@@ -1,0 +1,50 @@
+[
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/electron/electron-env.d.ts",
+    "label": "electron-env.d.ts"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/electron/main/index.ts",
+    "label": "index.ts"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/electron/preload/index.ts",
+    "label": "index.ts"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/App.vue",
+    "label": "App.vue"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/assets/electron.svg",
+    "label": "electron.svg"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/assets/vite.svg",
+    "label": "vite.svg"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/assets/vue.svg",
+    "label": "vue.svg"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/components",
+    "label": "components"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/demos/ipc.ts",
+    "label": "ipc.ts"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/main.ts",
+    "label": "main.ts"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/style.css",
+    "label": "style.css"
+  },
+  {
+    "id": "/Users/lynguyen/workspace/docker/cremind_project/tree-dump-ui/src/vite-env.d.ts",
+    "label": "vite-env.d.ts"
+  }
+]
