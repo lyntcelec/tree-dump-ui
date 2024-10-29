@@ -11,5 +11,6 @@ interface Window {
     scanDirectory: (dirPath: string) => Promise<any>;
     saveTreedump: (dirPath: string, data: any) => Promise<any>;
     openDirectory: () => Promise<string | null>;
+    loadConfig: () => Promise<string>;
   };
 }

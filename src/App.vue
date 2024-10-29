@@ -9,7 +9,7 @@
     <ElTree v-if="treeData.length > 0" :data="treeData" show-checkbox node-key="id"
       :default-checked-keys="defaultCheckedKeys" :props="defaultProps" ref="treeRef" />
     <ElButton type="primary" @click="saveSelected" style="margin-top: 20px;">
-      Save 
+      Save
     </ElButton>
   </div>
 </template>
@@ -50,6 +50,7 @@ const loadTreeData = async () => {
 
 const onPathChange = async () => {
   await loadTreeData();
+  await window.api.saveConfig(path.value); // Save current path to config
 };
 
 const browseDirectory = async () => {
@@ -57,6 +58,7 @@ const browseDirectory = async () => {
   if (selectedPath) {
     path.value = selectedPath;
     await loadTreeData();
+    await window.api.saveConfig(path.value); // Save current path to config
   }
 };
 
@@ -80,7 +82,11 @@ const saveSelected = async () => {
 };
 
 onMounted(async () => {
-  await loadTreeData();
+  const savedPath = await window.api.loadConfig();
+  if (savedPath) {
+    path.value = savedPath;
+    await loadTreeData();
+  }
 });
 </script>
 

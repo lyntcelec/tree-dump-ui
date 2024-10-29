@@ -85,7 +85,7 @@ async function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
-    setTimeout(() => { win.webContents.openDevTools() }, 1000);
+    // win.webContents.openDevTools()
   } else {
     win.loadFile(indexHtml)
   }
@@ -145,6 +145,7 @@ const stat = promisify(fs.stat);
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
 
+const configFilePath = path.join(process.env.APP_ROOT, 'config.json');
 // Modified scanDirectory function
 async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
   const entries = await readdir(dirPath);
@@ -208,6 +209,28 @@ ipcMain.handle("open-directory-dialog", async (_event) => {
   }
 });
 
+ipcMain.handle("load-config", async () => {
+  try {
+    if (fs.existsSync(configFilePath)) {
+      const data = await readFile(configFilePath, "utf-8");
+      return JSON.parse(data).currentPath || "";
+    }
+  } catch (error) {
+    console.error("Failed to load config:", error);
+  }
+  return "";
+});
+
+ipcMain.handle("save-config", async (_event, currentPath: string) => {
+  try {
+    const configData = { currentPath };
+    await writeFile(configFilePath, JSON.stringify(configData, null, 2), "utf-8");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save config:", error);
+    return { success: false };
+  }
+});
 ```
 ```./electron/preload/index.ts
 import { ipcRenderer, contextBridge } from 'electron'
@@ -216,7 +239,10 @@ contextBridge.exposeInMainWorld("api", {
   scanDirectory: (dirPath: string) => ipcRenderer.invoke("scan-directory", dirPath),
   saveTreedump: (dirPath: string, data: any) => ipcRenderer.invoke("save-treedump", dirPath, data),
   openDirectory: () => ipcRenderer.invoke("open-directory-dialog"),
+  loadConfig: () => ipcRenderer.invoke("load-config"),
+  saveConfig: (currentPath: string) => ipcRenderer.invoke("save-config", currentPath),
 });
+
 ```
 ```./src/App.vue
 <template>
@@ -230,7 +256,7 @@ contextBridge.exposeInMainWorld("api", {
     <ElTree v-if="treeData.length > 0" :data="treeData" show-checkbox node-key="id"
       :default-checked-keys="defaultCheckedKeys" :props="defaultProps" ref="treeRef" />
     <ElButton type="primary" @click="saveSelected" style="margin-top: 20px;">
-      Save 
+      Save
     </ElButton>
   </div>
 </template>
@@ -271,6 +297,7 @@ const loadTreeData = async () => {
 
 const onPathChange = async () => {
   await loadTreeData();
+  await window.api.saveConfig(path.value); // Save current path to config
 };
 
 const browseDirectory = async () => {
@@ -278,6 +305,7 @@ const browseDirectory = async () => {
   if (selectedPath) {
     path.value = selectedPath;
     await loadTreeData();
+    await window.api.saveConfig(path.value); // Save current path to config
   }
 };
 
@@ -301,7 +329,11 @@ const saveSelected = async () => {
 };
 
 onMounted(async () => {
-  await loadTreeData();
+  const savedPath = await window.api.loadConfig();
+  if (savedPath) {
+    path.value = savedPath;
+    await loadTreeData();
+  }
 });
 </script>
 
@@ -345,6 +377,7 @@ interface Window {
     scanDirectory: (dirPath: string) => Promise<any>;
     saveTreedump: (dirPath: string, data: any) => Promise<any>;
     openDirectory: () => Promise<string | null>;
+    loadConfig: () => Promise<string>;
   };
 }
 ```

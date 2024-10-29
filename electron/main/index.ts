@@ -42,7 +42,7 @@ async function createWindow() {
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
-    setTimeout(() => { win.webContents.openDevTools() }, 1000);
+    // win.webContents.openDevTools()
   } else {
     win.loadFile(indexHtml)
   }
@@ -102,6 +102,7 @@ const stat = promisify(fs.stat);
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
 
+const configFilePath = path.join(process.env.APP_ROOT, 'config.json');
 // Modified scanDirectory function
 async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
   const entries = await readdir(dirPath);
@@ -162,5 +163,28 @@ ipcMain.handle("open-directory-dialog", async (_event) => {
     return null;
   } else {
     return result.filePaths[0];
+  }
+});
+
+ipcMain.handle("load-config", async () => {
+  try {
+    if (fs.existsSync(configFilePath)) {
+      const data = await readFile(configFilePath, "utf-8");
+      return JSON.parse(data).currentPath || "";
+    }
+  } catch (error) {
+    console.error("Failed to load config:", error);
+  }
+  return "";
+});
+
+ipcMain.handle("save-config", async (_event, currentPath: string) => {
+  try {
+    const configData = { currentPath };
+    await writeFile(configFilePath, JSON.stringify(configData, null, 2), "utf-8");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save config:", error);
+    return { success: false };
   }
 });
