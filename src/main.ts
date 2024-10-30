@@ -5,6 +5,7 @@ import "element-plus/dist/index.css";
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 import "./style.css";
+import "./styles/highlight.js/github.css";
 
 const app = createApp(App);
 

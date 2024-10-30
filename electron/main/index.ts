@@ -1,5 +1,4 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from "electron";
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
@@ -7,7 +6,6 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import { isText } from 'istextorbinary';
 
-const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 process.env.APP_ROOT = path.join(__dirname, '../..')
@@ -34,6 +32,8 @@ const indexHtml = path.join(RENDERER_DIST, 'index.html')
 
 async function createWindow() {
   win = new BrowserWindow({
+    width: 800,
+    height: 800,
     title: 'Main window',
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
@@ -105,7 +105,7 @@ const writeFile = promisify(fs.writeFile);
 
 const configFilePath = path.join(process.env.APP_ROOT, 'config.json');
 
-async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
+async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>) {
   const entries = await readdir(dirPath);
   const tree = [];
 
@@ -116,11 +116,18 @@ async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
     const node: any = {
       id: fullPath,
       label: entry,
-      checked: selectedIds.has(fullPath), // Đảm bảo dòng này tồn tại
+      checked: selectedNodes.has(fullPath),
     };
 
+    // Include lineFrom and lineTo if they exist
+    if (selectedNodes.has(fullPath)) {
+      const selectedNodeData = selectedNodes.get(fullPath);
+      node.lineFrom = selectedNodeData.lineFrom;
+      node.lineTo = selectedNodeData.lineTo;
+    }
+
     if (entryStat.isDirectory()) {
-      const children = await scanDirectory(fullPath, selectedIds);
+      const children = await scanDirectory(fullPath, selectedNodes);
       node.children = children;
     }
     tree.push(node);
@@ -129,23 +136,26 @@ async function scanDirectory(dirPath: string, selectedIds: Set<string>) {
   return tree;
 }
 
-
 ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
   try {
     const treedumpPath = path.join(dirPath, ".treedump");
-    let selectedIds = new Set<string>();
+    let selectedNodes = new Map<string, any>();
 
     if (fs.existsSync(treedumpPath)) {
       const data = await readFile(treedumpPath, "utf-8");
-      const selectedNodes = JSON.parse(data);
-      selectedIds = new Set(selectedNodes.map((node: any) => path.join(dirPath, node.id)));
+      const selectedNodesArray = JSON.parse(data);
+      for (const node of selectedNodesArray) {
+        const fullPath = path.join(dirPath, node.id);
+        selectedNodes.set(fullPath, node);
+      }
     }
 
-    const treeData = await scanDirectory(dirPath, selectedIds);
-    return { treeData, selectedIds: Array.from(selectedIds) }; // Return both
+    const treeData = await scanDirectory(dirPath, selectedNodes);
+    const selectedIds = Array.from(selectedNodes.keys());
+    return { treeData, selectedIds };
   } catch (error) {
     console.error("Error scanning directory:", error);
-    return { treeData: [], selectedIds: [] }; // Ensure both are returned even on error
+    return { treeData: [], selectedIds: [] };
   }
 });
 
