@@ -113,8 +113,6 @@ const contentDivRef = ref(null);
 const ignoreDialogVisible = ref(false);
 const ignorePatterns = ref<string>('');
 
-const currentDirPath = ref<string>('');
-
 const DEFAULT_IGNORE_PATTERNS = `# Logs
 logs
 *.log
@@ -181,9 +179,10 @@ const loadTreeData = async () => {
   if (path.value && path.value.trim() !== '') {
     startLoading();
     try {
-      const result = await window.api.scanDirectory(path.value, ignorePatterns.value)
+      const result = await window.api.scanDirectory(path.value);
       treeData.value = result.treeData;
       defaultCheckedKeys.value = result.selectedIds;
+      ignorePatterns.value = result.ignorePatternsContent || DEFAULT_IGNORE_PATTERNS;
       await nextTick();
       await updateFileContents();
     } finally {
@@ -388,47 +387,33 @@ const cancelIgnoreDialog = () => {
 
 // Function to scan directory with ignore patterns
 const scanDirectory = async (dirPath: string) => {
-  const { treeData, selectedIds } = await window.api.scanDirectory(dirPath, ignorePatterns.value);
-  // Update your tree data and selected IDs as needed
-  // For example:
-  // treeDataRef.value = treeData;
-  // selectedIdsRef.value = selectedIds;
+  const result = await window.api.scanDirectory(dirPath);
+  treeData.value = result.treeData;
+  defaultCheckedKeys.value = result.selectedIds;
+  ignorePatterns.value = result.ignorePatternsContent || DEFAULT_IGNORE_PATTERNS;
 };
 
-// Function to save the ignore patterns
 const saveIgnorePatterns = async () => {
-  const result = await window.api.saveIgnorePatterns(ignorePatterns.value);
-  if (result.success) {
+  // Since we are now saving ignore patterns within the .treedump file, we need to save both selected nodes and ignore patterns
+  const checkedNodes = treeRef.value.getCheckedNodes(true, false);
+
+  const serializableNodes = checkedNodes.map((node: any) => ({
+    id: getRelativePath(node.id),
+    label: node.label,
+    lineFrom: node.lineFrom,
+    lineTo: node.lineTo,
+  }));
+
+  try {
+    await window.api.saveTreedump(path.value, serializableNodes, ignorePatterns.value);
     ignoreDialogVisible.value = false;
-    // Optionally, re-scan the directory to apply new ignore patterns
-    if (currentDirPath.value) {
-      await scanDirectory(currentDirPath.value);
-    }
-  } else {
-    // Handle error if needed
-    console.error('Failed to save ignore patterns');
-  }
-  await loadTreeData();
-};
-
-// Function to handle directory selection (assuming you have such a function)
-const selectDirectory = async () => {
-  const dirPath = await window.api.openDirectory();
-  if (dirPath) {
-    currentDirPath.value = dirPath;
-    await scanDirectory(dirPath);
+    await loadTreeData();
+  } catch (error) {
+    console.error('Failed to save .treedump', error);
   }
 };
 
-// Load ignore patterns on component mount
 onMounted(async () => {
-  const patterns = await window.api.loadIgnorePatterns();
-  if (patterns) {
-    ignorePatterns.value = patterns;
-  } else {
-    // Set default ignore patterns if none are saved
-    ignorePatterns.value = DEFAULT_IGNORE_PATTERNS;
-  }
   const savedPath = await window.api.loadConfig();
   if (savedPath) {
     path.value = savedPath;

@@ -106,7 +106,6 @@ const writeFile = promisify(fs.writeFile);
 
 const configDir = path.join(os.homedir(), '.treedump');
 const configFilePath = path.join(configDir, 'config.json');
-const ignoreFilePath = path.join(configDir, 'ignore_patterns.txt');
 
 // Create the .treedump directory if it doesn't exist
 if (!fs.existsSync(configDir)) {
@@ -183,18 +182,23 @@ async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>, i
   }
 }
 
-ipcMain.handle("scan-directory", async (_event, dirPath: string, ignorePatternsContent: string) => {
+ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
   try {
     const treedumpPath = path.join(dirPath, ".treedump");
     let selectedNodes = new Map<string, any>();
+    let ignorePatternsContent = '';
 
     if (fs.existsSync(treedumpPath)) {
       const data = await readFile(treedumpPath, "utf-8");
-      const selectedNodesArray = JSON.parse(data);
+      const treedumpData = JSON.parse(data);
+
+      const selectedNodesArray = treedumpData.files || [];
       for (const node of selectedNodesArray) {
         const fullPath = path.join(dirPath, node.id);
         selectedNodes.set(fullPath, node);
       }
+
+      ignorePatternsContent = treedumpData.ignore_patterns || '';
     }
 
     // Parse the ignore patterns into an array, excluding comments and empty lines
@@ -204,16 +208,21 @@ ipcMain.handle("scan-directory", async (_event, dirPath: string, ignorePatternsC
 
     const treeData = await scanDirectory(dirPath, selectedNodes, ignorePatterns);
     const selectedIds = Array.from(selectedNodes.keys());
-    return { treeData, selectedIds };
+    return { treeData, selectedIds, ignorePatternsContent };
   } catch (error) {
     console.error("Error scanning directory:", error);
-    return { treeData: [], selectedIds: [] };
+    return { treeData: [], selectedIds: [], ignorePatternsContent: '' };
   }
 });
 
-ipcMain.handle("save-treedump", async (_event, dirPath: string, data: any) => {
+
+ipcMain.handle("save-treedump", async (_event, dirPath: string, data: any, ignorePatterns: string) => {
   const treedumpPath = path.join(dirPath, ".treedump");
-  await writeFile(treedumpPath, JSON.stringify(data, null, 2), "utf-8");
+  const treedumpData = {
+    ignore_patterns: ignorePatterns,
+    files: data
+  };
+  await writeFile(treedumpPath, JSON.stringify(treedumpData, null, 2), "utf-8");
   return { success: true };
 });
 
@@ -271,26 +280,3 @@ ipcMain.handle("read-files", async (_event, dirPath: string, filePaths: string[]
   return contents;
 });
 
-ipcMain.handle("save-ignore-patterns", async (_event, patterns: string) => {
-  try {
-    await writeFile(ignoreFilePath, patterns, "utf-8");
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to save ignore patterns:", error);
-    return { success: false };
-  }
-});
-
-ipcMain.handle("load-ignore-patterns", async () => {
-  try {
-    if (fs.existsSync(ignoreFilePath)) {
-      const data = await readFile(ignoreFilePath, "utf-8");
-      return data;
-    } else {
-      return null;
-    }
-  } catch (error) {
-    console.error("Failed to load ignore patterns:", error);
-    return '';
-  }
-});
