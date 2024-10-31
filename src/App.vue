@@ -121,6 +121,7 @@ node_modules
 *.local
 .treedump
 **/__pycache__
+.git
 
 # Editor directories and files
 .vscode/.debug.env
