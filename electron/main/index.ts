@@ -106,34 +106,55 @@ const writeFile = promisify(fs.writeFile);
 const configFilePath = path.join(process.env.APP_ROOT, 'config.json');
 
 async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>) {
-  const entries = await readdir(dirPath);
-  const tree = [];
+  try {
+    // Read directory contents
+    const entries = await readdir(dirPath);
+    const tree = [];
 
-  for (const entry of entries) {
-    const fullPath = path.join(dirPath, entry);
-    const entryStat = await stat(fullPath);
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry);
 
-    const node: any = {
-      id: fullPath,
-      label: entry,
-      checked: selectedNodes.has(fullPath),
-    };
+      // Check if the entry exists and handle errors gracefully
+      let entryStat;
+      try {
+        entryStat = await stat(fullPath);
+      } catch (error) {
+        console.warn(`Skipping missing or inaccessible entry: ${fullPath}`);
+        continue; // Skip this entry if it doesn't exist or cannot be accessed
+      }
 
-    // Include lineFrom and lineTo if they exist
-    if (selectedNodes.has(fullPath)) {
-      const selectedNodeData = selectedNodes.get(fullPath);
-      node.lineFrom = selectedNodeData.lineFrom;
-      node.lineTo = selectedNodeData.lineTo;
+      // Define node structure with initial properties
+      const node: any = {
+        id: fullPath,
+        label: entry,
+        checked: selectedNodes.has(fullPath),
+      };
+
+      // Include lineFrom and lineTo if they exist in selectedNodes
+      if (selectedNodes.has(fullPath)) {
+        const selectedNodeData = selectedNodes.get(fullPath);
+        node.lineFrom = selectedNodeData.lineFrom;
+        node.lineTo = selectedNodeData.lineTo;
+      }
+
+      // Recursively scan subdirectories
+      if (entryStat.isDirectory()) {
+        try {
+          node.children = await scanDirectory(fullPath, selectedNodes);
+        } catch (err) {
+          console.warn(`Failed to scan directory: ${fullPath}`, err);
+          node.children = []; // Set to empty if the directory scan fails
+        }
+      }
+
+      tree.push(node);
     }
 
-    if (entryStat.isDirectory()) {
-      const children = await scanDirectory(fullPath, selectedNodes);
-      node.children = children;
-    }
-    tree.push(node);
+    return tree;
+  } catch (err) {
+    console.error(`Error reading directory: ${dirPath}`, err);
+    return []; // Return an empty array on error
   }
-
-  return tree;
 }
 
 ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
