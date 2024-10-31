@@ -1,34 +1,35 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from "electron";
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
-import os from 'node:os'
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import os from 'node:os';
 import { promisify } from "node:util";
 import fs from "node:fs";
 import { isText } from 'istextorbinary';
+import { minimatch } from 'minimatch'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-process.env.APP_ROOT = path.join(__dirname, '../..')
+process.env.APP_ROOT = path.join(__dirname, '../..');
 
-export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
-export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
-export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
+export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
+export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
+export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
-  : RENDERER_DIST
+  : RENDERER_DIST;
 
-if (os.release().startsWith('6.1')) app.disableHardwareAcceleration()
-if (process.platform === 'win32') app.setAppUserModelId(app.getName())
+if (os.release().startsWith('6.1')) app.disableHardwareAcceleration();
+if (process.platform === 'win32') app.setAppUserModelId(app.getName());
 
 if (!app.requestSingleInstanceLock()) {
-  app.quit()
-  process.exit(0)
+  app.quit();
+  process.exit(0);
 }
 
-let win: BrowserWindow | null = null
-const preload = path.join(__dirname, '../preload/index.mjs')
-const indexHtml = path.join(RENDERER_DIST, 'index.html')
+let win: BrowserWindow | null = null;
+const preload = path.join(__dirname, '../preload/index.mjs');
+const indexHtml = path.join(RENDERER_DIST, 'index.html');
 
 async function createWindow() {
   win = new BrowserWindow({
@@ -39,47 +40,47 @@ async function createWindow() {
     webPreferences: {
       preload,
     },
-  })
+  });
 
   if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL)
-    // win.webContents.openDevTools()
+    win.loadURL(VITE_DEV_SERVER_URL);
+    // win.webContents.openDevTools();
   } else {
-    win.loadFile(indexHtml)
+    win.loadFile(indexHtml);
   }
 
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', new Date().toLocaleString())
-  })
+    win?.webContents.send('main-process-message', new Date().toLocaleString());
+  });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https:')) shell.openExternal(url)
-    return { action: 'deny' }
-  })
+    if (url.startsWith('https:')) shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  win = null
-  if (process.platform !== 'darwin') app.quit()
-})
+  win = null;
+  if (process.platform !== 'darwin') app.quit();
+});
 
 app.on('second-instance', () => {
   if (win) {
-    if (win.isMinimized()) win.restore()
-    win.focus()
+    if (win.isMinimized()) win.restore();
+    win.focus();
   }
-})
+});
 
 app.on('activate', () => {
-  const allWindows = BrowserWindow.getAllWindows()
+  const allWindows = BrowserWindow.getAllWindows();
   if (allWindows.length) {
-    allWindows[0].focus()
+    allWindows[0].focus();
   } else {
-    createWindow()
+    createWindow();
   }
-})
+});
 
 ipcMain.handle('open-win', (_, arg) => {
   const childWindow = new BrowserWindow({
@@ -88,14 +89,14 @@ ipcMain.handle('open-win', (_, arg) => {
       nodeIntegration: true,
       contextIsolation: false,
     },
-  })
+  });
 
   if (VITE_DEV_SERVER_URL) {
-    childWindow.loadURL(`${VITE_DEV_SERVER_URL}#${arg}`)
+    childWindow.loadURL(`${VITE_DEV_SERVER_URL}#${arg}`);
   } else {
-    childWindow.loadFile(indexHtml, { hash: arg })
+    childWindow.loadFile(indexHtml, { hash: arg });
   }
-})
+});
 
 // Helper functions
 const readdir = promisify(fs.readdir);
@@ -103,9 +104,26 @@ const stat = promisify(fs.stat);
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
 
-const configFilePath = path.join(process.env.APP_ROOT, 'config.json');
+const configDir = path.join(os.homedir(), '.treedump');
+const configFilePath = path.join(configDir, 'config.json');
+const ignoreFilePath = path.join(configDir, 'ignore_patterns.txt');
 
-async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>) {
+// Create the .treedump directory if it doesn't exist
+if (!fs.existsSync(configDir)) {
+  fs.mkdirSync(configDir, { recursive: true });
+}
+
+// Helper function to determine if a file or directory should be ignored
+function shouldIgnore(entry: string, ignorePatterns: string[]): boolean {
+  return ignorePatterns.some(pattern => {
+    // Convert pattern to use forward slashes for consistency
+    pattern = pattern.replace(/\\/g, '/');
+    const isMatch = minimatch(entry, pattern, { matchBase: true, dot: true });
+    return isMatch;
+  });
+}
+
+async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>, ignorePatterns: string[]): Promise<any[]> {
   try {
     // Read directory contents
     const entries = await readdir(dirPath);
@@ -113,6 +131,14 @@ async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>) {
 
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry);
+
+      // Get the relative path from the root directory for pattern matching
+      const relativePath = path.relative(dirPath, fullPath).replace(/\\/g, '/');
+
+      // Skip ignored directories/files
+      if (shouldIgnore(relativePath, ignorePatterns)) {
+        continue;
+      }
 
       // Check if the entry exists and handle errors gracefully
       let entryStat;
@@ -140,7 +166,7 @@ async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>) {
       // Recursively scan subdirectories
       if (entryStat.isDirectory()) {
         try {
-          node.children = await scanDirectory(fullPath, selectedNodes);
+          node.children = await scanDirectory(fullPath, selectedNodes, ignorePatterns);
         } catch (err) {
           console.warn(`Failed to scan directory: ${fullPath}`, err);
           node.children = []; // Set to empty if the directory scan fails
@@ -157,7 +183,7 @@ async function scanDirectory(dirPath: string, selectedNodes: Map<string, any>) {
   }
 }
 
-ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
+ipcMain.handle("scan-directory", async (_event, dirPath: string, ignorePatternsContent: string) => {
   try {
     const treedumpPath = path.join(dirPath, ".treedump");
     let selectedNodes = new Map<string, any>();
@@ -171,7 +197,12 @@ ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
       }
     }
 
-    const treeData = await scanDirectory(dirPath, selectedNodes);
+    // Parse the ignore patterns into an array, excluding comments and empty lines
+    const ignorePatterns = ignorePatternsContent.split('\n')
+      .map(pattern => pattern.trim())
+      .filter(pattern => pattern && !pattern.startsWith('#'));
+
+    const treeData = await scanDirectory(dirPath, selectedNodes, ignorePatterns);
     const selectedIds = Array.from(selectedNodes.keys());
     return { treeData, selectedIds };
   } catch (error) {
@@ -179,7 +210,6 @@ ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
     return { treeData: [], selectedIds: [] };
   }
 });
-
 
 ipcMain.handle("save-treedump", async (_event, dirPath: string, data: any) => {
   const treedumpPath = path.join(dirPath, ".treedump");
@@ -239,4 +269,28 @@ ipcMain.handle("read-files", async (_event, dirPath: string, filePaths: string[]
     }
   }
   return contents;
+});
+
+ipcMain.handle("save-ignore-patterns", async (_event, patterns: string) => {
+  try {
+    await writeFile(ignoreFilePath, patterns, "utf-8");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save ignore patterns:", error);
+    return { success: false };
+  }
+});
+
+ipcMain.handle("load-ignore-patterns", async () => {
+  try {
+    if (fs.existsSync(ignoreFilePath)) {
+      const data = await readFile(ignoreFilePath, "utf-8");
+      return data;
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error("Failed to load ignore patterns:", error);
+    return '';
+  }
 });

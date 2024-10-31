@@ -12,6 +12,7 @@
         <ElButton type="primary" @click="handleReload" style="margin-left: 10px;">
           Reload
         </ElButton>
+        <ElButton type="primary" @click="openIgnoreDialog">Ignore</ElButton>
       </div>
     </ElAffix>
 
@@ -39,6 +40,14 @@
       <template #footer>
         <ElButton @click="dialogVisible = false">Cancel</ElButton>
         <ElButton type="primary" @click="handleDialogOk">OK</ElButton>
+      </template>
+    </ElDialog>
+    <ElDialog title="Ignore Patterns" v-model="ignoreDialogVisible" width="50%">
+      <ElInput type="textarea" v-model="ignorePatterns" :rows="20"
+        placeholder="Enter directories/files to ignore, one per line"></ElInput>
+      <template #footer>
+        <ElButton @click="cancelIgnoreDialog">Cancel</ElButton>
+        <ElButton type="primary" @click="saveIgnorePatterns">OK</ElButton>
       </template>
     </ElDialog>
   </div>
@@ -101,6 +110,37 @@ const currentNode = ref<TreeNode | null>(null);
 
 const contentDivRef = ref(null);
 
+const ignoreDialogVisible = ref(false);
+const ignorePatterns = ref<string>('');
+
+const currentDirPath = ref<string>('');
+
+const DEFAULT_IGNORE_PATTERNS = `
+# Logs
+logs
+*.log
+
+node_modules
+*.local
+.treedump
+**/__pycache__
+
+# Editor directories and files
+.vscode/.debug.env
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# lockfile
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+`;
+
 const startLoading = () => {
   isLoading = ElLoading.service({ text: 'Loading...', fullscreen: true });
 };
@@ -142,7 +182,7 @@ const loadTreeData = async () => {
   if (path.value && path.value.trim() !== '') {
     startLoading();
     try {
-      const result = await window.api.scanDirectory(path.value);
+      const result = await window.api.scanDirectory(path.value, ignorePatterns.value)
       treeData.value = result.treeData;
       defaultCheckedKeys.value = result.selectedIds;
       await nextTick();
@@ -188,6 +228,7 @@ const saveSelected = async () => {
   } catch (error) {
     ElMessage.error('Failed to save .treedump');
   }
+  await loadTreeData();
 };
 
 const updateFileContents = async () => {
@@ -238,14 +279,6 @@ const copyToClipboard = () => {
 const handleReload = async () => {
   await loadTreeData();
 };
-
-onMounted(async () => {
-  const savedPath = await window.api.loadConfig();
-  if (savedPath) {
-    path.value = savedPath;
-    await loadTreeData();
-  }
-});
 
 const handleNodeClick = async (node: any) => {
   if (!node.children) {
@@ -342,6 +375,67 @@ const selectAllTextInContentBox = () => {
     selection!.addRange(range);
   }
 };
+
+
+// Function to open the Ignore Patterns dialog
+const openIgnoreDialog = () => {
+  ignoreDialogVisible.value = true;
+};
+
+// Function to cancel and close the dialog
+const cancelIgnoreDialog = () => {
+  ignoreDialogVisible.value = false;
+};
+
+// Function to scan directory with ignore patterns
+const scanDirectory = async (dirPath: string) => {
+  const { treeData, selectedIds } = await window.api.scanDirectory(dirPath, ignorePatterns.value);
+  // Update your tree data and selected IDs as needed
+  // For example:
+  // treeDataRef.value = treeData;
+  // selectedIdsRef.value = selectedIds;
+};
+
+// Function to save the ignore patterns
+const saveIgnorePatterns = async () => {
+  const result = await window.api.saveIgnorePatterns(ignorePatterns.value);
+  if (result.success) {
+    ignoreDialogVisible.value = false;
+    // Optionally, re-scan the directory to apply new ignore patterns
+    if (currentDirPath.value) {
+      await scanDirectory(currentDirPath.value);
+    }
+  } else {
+    // Handle error if needed
+    console.error('Failed to save ignore patterns');
+  }
+  await loadTreeData();
+};
+
+// Function to handle directory selection (assuming you have such a function)
+const selectDirectory = async () => {
+  const dirPath = await window.api.openDirectory();
+  if (dirPath) {
+    currentDirPath.value = dirPath;
+    await scanDirectory(dirPath);
+  }
+};
+
+// Load ignore patterns on component mount
+onMounted(async () => {
+  const patterns = await window.api.loadIgnorePatterns();
+  if (patterns) {
+    ignorePatterns.value = patterns;
+  } else {
+    // Set default ignore patterns if none are saved
+    ignorePatterns.value = DEFAULT_IGNORE_PATTERNS;
+  }
+  const savedPath = await window.api.loadConfig();
+  if (savedPath) {
+    path.value = savedPath;
+    await loadTreeData();
+  }
+});
 </script>
 
 <style scoped>
@@ -381,7 +475,7 @@ const selectAllTextInContentBox = () => {
   text-align: right;
 }
 
-.el-input-number {
+.ElInput-number {
   width: 100%;
 }
 
