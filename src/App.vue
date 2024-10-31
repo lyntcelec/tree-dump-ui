@@ -213,21 +213,31 @@ const browseDirectory = async () => {
 const saveSelected = async () => {
   const checkedNodes = treeRef.value.getCheckedNodes(true, false);
 
-  const serializableNodes = checkedNodes.map((node: any) => ({
-    id: getRelativePath(node.id),
-    label: node.label,
-    lineFrom: node.lineFrom,
-    lineTo: node.lineTo,
-  }));
+  const serializableNodes = checkedNodes.map((node: any) => {
+    const relativePath = getRelativePath(node.id);
+    const nodeData: Record<string, any> = {
+      id: relativePath,
+      label: node.label,
+    };
+
+    // Only include lineFrom and lineTo if they do not represent the entire file
+    if (node.lineFrom !== 1 || node.lineTo !== totalLines.value) {
+      nodeData.lineFrom = node.lineFrom;
+      nodeData.lineTo = node.lineTo;
+    }
+
+    return nodeData;
+  });
 
   try {
     await window.api.saveTreedump(path.value, serializableNodes, ignorePatterns.value);
-    ElMessage.success('Selected directories and files saved to .treedump');
+    ElMessage.success("Selected directories and files saved to .treedump");
   } catch (error) {
-    ElMessage.error('Failed to save .treedump');
+    ElMessage.error("Failed to save .treedump");
   }
   await loadTreeData();
 };
+
 
 const updateFileContents = async () => {
   const checkedNodes = treeRef.value.getCheckedNodes(true, false);
