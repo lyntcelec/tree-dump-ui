@@ -115,8 +115,7 @@ const ignorePatterns = ref<string>('');
 
 const currentDirPath = ref<string>('');
 
-const DEFAULT_IGNORE_PATTERNS = `
-# Logs
+const DEFAULT_IGNORE_PATTERNS = `# Logs
 logs
 *.log
 
@@ -223,7 +222,7 @@ const saveSelected = async () => {
   }));
 
   try {
-    await window.api.saveTreedump(path.value, serializableNodes);
+    await window.api.saveTreedump(path.value, serializableNodes, ignorePatterns.value);
     ElMessage.success('Selected directories and files saved to .treedump');
   } catch (error) {
     ElMessage.error('Failed to save .treedump');
