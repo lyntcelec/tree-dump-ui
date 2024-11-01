@@ -113,32 +113,6 @@ const contentDivRef = ref(null);
 const ignoreDialogVisible = ref(false);
 const ignorePatterns = ref<string>('');
 
-const DEFAULT_IGNORE_PATTERNS = `# Logs
-logs
-*.log
-
-node_modules
-*.local
-.treedump
-**/__pycache__
-.git
-
-# Editor directories and files
-.vscode/.debug.env
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# lockfile
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
-`;
-
 const startLoading = () => {
   isLoading = ElLoading.service({ text: 'Loading...', fullscreen: true });
 };
@@ -183,7 +157,7 @@ const loadTreeData = async () => {
       const result = await window.api.scanDirectory(path.value);
       treeData.value = result.treeData;
       defaultCheckedKeys.value = result.selectedIds;
-      ignorePatterns.value = result.ignorePatternsContent || DEFAULT_IGNORE_PATTERNS;
+      ignorePatterns.value = result.ignorePatternsContent;
       await nextTick();
       await updateFileContents();
     } finally {
@@ -410,14 +384,6 @@ const openIgnoreDialog = () => {
 // Function to cancel and close the dialog
 const cancelIgnoreDialog = () => {
   ignoreDialogVisible.value = false;
-};
-
-// Function to scan directory with ignore patterns
-const scanDirectory = async (dirPath: string) => {
-  const result = await window.api.scanDirectory(dirPath);
-  treeData.value = result.treeData;
-  defaultCheckedKeys.value = result.selectedIds;
-  ignorePatterns.value = result.ignorePatternsContent || DEFAULT_IGNORE_PATTERNS;
 };
 
 const saveIgnorePatterns = async () => {

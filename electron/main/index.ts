@@ -15,6 +15,32 @@ export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
+const DEFAULT_IGNORE_PATTERNS = `# Logs
+logs
+*.log
+
+node_modules
+*.local
+.treedump
+**/__pycache__
+.git
+
+# Editor directories and files
+.vscode/.debug.env
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# lockfile
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+`;
+
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
   : RENDERER_DIST;
@@ -199,6 +225,11 @@ ipcMain.handle("scan-directory", async (_event, dirPath: string) => {
       }
 
       ignorePatternsContent = treedumpData.ignore_patterns || '';
+    }
+
+    // Use default ignore patterns if none are provided
+    if (!ignorePatternsContent) {
+      ignorePatternsContent = DEFAULT_IGNORE_PATTERNS;
     }
 
     // Parse the ignore patterns into an array, excluding comments and empty lines
