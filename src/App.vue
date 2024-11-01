@@ -232,9 +232,17 @@ const saveSelected = async () => {
 
   try {
     await window.api.saveTreedump(path.value, serializableNodes, ignorePatterns.value);
-    ElMessage.success("Selected directories and files saved to .treedump");
+    ElMessage({
+      message: "Selected directories and files saved to .treedump",
+      type: "success",
+      duration: 1000
+    })
   } catch (error) {
-    ElMessage.error("Failed to save .treedump");
+    ElMessage({
+      message: "Failed to save .treedump",
+      type: "error",
+      duration: 1000,
+    })
   }
   await loadTreeData();
 };
@@ -277,11 +285,19 @@ const copyToClipboard = () => {
   navigator.clipboard
     .writeText(fileContents.value)
     .then(() => {
-      ElMessage.success('Text copied to clipboard');
+      ElMessage({
+        message: 'Text copied to clipboard',
+        type: 'success',
+        duration: 1000
+      });
     })
     .catch((err) => {
       console.error('Failed to copy text: ', err);
-      ElMessage.error('Failed to copy text');
+      ElMessage({
+        message: 'Failed to copy text',
+        type: 'error',
+        duration: 1000
+      });
     });
 };
 
